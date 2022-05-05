@@ -3,11 +3,14 @@ use warnings;
 
 use Curses;
 
+use lib "./dict";
+
 # Define the program title and the menu content
 my $title = "typerl";
-my @options = ("Play", "Practice", "Statistics", "Exit");
+my @options = ("Play", "Settings", "Statistics", "Exit");
 my $options_max = $#options;
 my $blank_sep = 2;
+my $timer = 3;
 
 main();
 
@@ -18,7 +21,7 @@ sub main {
     initscr;
 
     # Create a new window
-    my $win = Curses->new();
+    my $win = Curses->new;
     
     # Get the max x value and calculate the middle of the screen width
     my $max_x = $win->getmaxx;
@@ -76,7 +79,9 @@ sub main {
             if($option == $options_max) {
                 last;
             } else {
-                execute_option($option);
+                # Options to execute
+                my @options_subs = (\&play, \&settings, \&statistics);
+                $options_subs[$option]->();
             }
         }
 
@@ -90,6 +95,97 @@ sub main {
 }
 
 
-sub execute_option {
-    my $option = shift;
+sub play {
+    # Create a new window
+    my $win = Curses->new;
+
+    # Get the max x value and calculate the middle of the screen width
+    my $max_x = $win->getmaxx;
+    my $middle_x = int($max_x / 2);
+
+    # Create borders for the window
+    box($win, 0, 0);
+
+    # Prepare the dictionary
+    require english;
+    my $dict = english->new;
+    my @english_words = @{$dict->{words}};
+
+    # Preare for the word generator loop
+    my $line = 4;
+    my $line_word = '';
+    my $line_len = 0;
+    my @lines = ();
+    # Generate words
+    for my $i (1 .. 300) {
+        my $new_word = "$english_words[int(rand(scalar @english_words))]  ";
+        $line_len += int((length $new_word) / 2) + 2;
+        $line_word .= $new_word;
+
+        if(! ($i % 10)) {
+            ## Add the new generated line to the window
+            #addstring($win, $line, $middle_x - int((length $line_word) / 2) , $line_word);
+
+            # Move the cursor down
+            $line += 2;
+            # Reset counters
+            $line_word = '';
+            $line_len = 0;
+            # Add the new line of words to the lines array
+            push @lines, $line_word;
+        }
+    }
+
+    # Prepare for the timer's signal
+    my $end = 0;
+    local $SIG{HUP} = sub { $end = 1 };
+    # Save the parent_pid for the child
+    my $parent_pid = $$;
+
+    # Creates the child for running the timer
+    # the father is the main game, the child will signal
+    # when time is up!
+    my $pid = fork;
+    die "Error forking timer" unless defined $pid;
+
+    if($pid == 0) { # Child process, run the timer here
+        # Sleep for the amount of seconds needed
+        sleep $timer;
+        # Signal the parent process
+        kill HUP => $parent_pid;
+        exit 0;
+    } else { # Parent process, play here
+
+        my $time = 0;
+        until ($end) {
+            refresh($win);
+            addstring($win, 2, $middle_x, "$time");
+            ++$time;
+            sleep 1;
+        }
+
+        addstring($win, 10, 10, "Time's up!");
+    }
+
+    getch($win);
+
+    return 0;
+}
+
+sub settings {
+    # Create a new window
+    my $win = Curses->new;
+
+    # Get the max x value and calculate the middle of the screen width
+    my $max_x = $win->getmaxx;
+    my $middle_x = int($max_x / 2);
+
+    # Create borders for the window
+    box($win, 0, 0);
+
+    return 0;
+}
+
+sub statistics {
+    return 0;
 }
