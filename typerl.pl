@@ -8,9 +8,11 @@ use lib "./dict";
 # Define the program title and the menu content
 my $title = "typerl";
 my @options = ("Play", "Settings", "Statistics", "Exit");
+my @options_subs = (\&play, \&settings, \&statistics);
 my $options_max = $#options;
 my $blank_sep = 2;
-my $timer = 3;
+my $timer = 15;
+my $spaces = 2;
 
 main();
 
@@ -19,6 +21,17 @@ exit 0;
 sub main {
     # Initialize curses
     initscr;
+    if(! has_colors) {
+        print("Your terminal does not support colors! :( \n");
+        endwin;
+        exit 1;
+    }
+    start_color;
+
+    # Good character
+    init_pair(1, COLOR_GREEN, COLOR_BLACK);
+    # Bad character
+    init_pair(2, COLOR_RED, COLOR_BLACK);
 
     # Create a new window
     my $win = Curses->new;
@@ -80,7 +93,6 @@ sub main {
                 last;
             } else {
                 # Options to execute
-                my @options_subs = (\&play, \&settings, \&statistics);
                 $options_subs[$option]->();
             }
         }
@@ -96,6 +108,7 @@ sub main {
 
 
 sub play {
+
     # Create a new window
     my $win = Curses->new;
 
@@ -109,30 +122,42 @@ sub play {
     # Prepare the dictionary
     require english;
     my $dict = english->new;
-    my @english_words = @{$dict->{words}};
+    my @words = @{$dict->{words}};
 
     # Preare for the word generator loop
-    my $line = 4;
-    my $line_word = '';
+    my $row = 4;
+    my $words_line = '';
     my $line_len = 0;
-    my @lines = ();
+    my @words_lines = ();
     # Generate words
     for my $i (1 .. 300) {
-        my $new_word = "$english_words[int(rand(scalar @english_words))]  ";
-        $line_len += int((length $new_word) / 2) + 2;
-        $line_word .= $new_word;
+        my $new_word = '';
+        if(! ($i % 10)) {
+            $new_word = $words[int(rand(scalar @words))];
+        } else {
+            $new_word = $words[int(rand(scalar @words))] . ' ' x $spaces;
+        }
+
+        $line_len += int((length $new_word) / 2);
+        $words_line .= $new_word;
 
         if(! ($i % 10)) {
             ## Add the new generated line to the window
-            #addstring($win, $line, $middle_x - int((length $line_word) / 2) , $line_word);
+            my $length = length $words_line;
+            my $start = $middle_x - int($length / 2);
+            if (($i / 10) < 4) {
+                addstring($win, $row, $start, $words_line);
+            }
+
+            # Push the new line of words to the lines array and concat to
+            # the long string
+            push @words_lines, { words => $words_line, start => $start, length => $length };
 
             # Move the cursor down
-            $line += 2;
+            $row += 2;
             # Reset counters
-            $line_word = '';
+            $words_line = '';
             $line_len = 0;
-            # Add the new line of words to the lines array
-            push @lines, $line_word;
         }
     }
 
@@ -142,11 +167,11 @@ sub play {
     # Save the parent_pid for the child
     my $parent_pid = $$;
 
-    # Creates the child for running the timer
+    # Create the child for running the timer
     # the father is the main game, the child will signal
     # when time is up!
     my $pid = fork;
-    die "Error forking timer" unless defined $pid;
+    if(! defined $pid) { die "Error forking timer"; }
 
     if($pid == 0) { # Child process, run the timer here
         # Sleep for the amount of seconds needed
@@ -156,18 +181,47 @@ sub play {
         exit 0;
     } else { # Parent process, play here
 
-        my $time = 0;
+        my $line_count = 0;
+        my @chars = split //, $words_lines[$line_count]->{words};
+        my $start = $words_lines[$line_count]->{start};
+        my $line_length = $words_lines[$line_count]->{length};
+        my $row = 4;
         until ($end) {
-            refresh($win);
-            addstring($win, 2, $middle_x, "$time");
-            ++$time;
-            sleep 1;
-        }
+            my $words_count = 0;
+            my $char_count = 0;
+            until($end || $words_count > 9 || $char_count >= $line_length) {
+                my $input_char = getch($win);
+                if ($input_char eq ' ') {
+                    ++$words_count;
+                    $char_count += $spaces;
+                } elsif ($input_char eq $chars[$char_count]) {
+                    attron($win, COLOR_PAIR(1));
+                    addch($win, $row, $start + $char_count, $chars[$char_count]);
+                    attroff($win, COLOR_PAIR(1));
+                    ++$char_count;
+                } else {
+                    attron($win, COLOR_PAIR(2));
+                    addch($win, $row, $start + $char_count, $chars[$char_count]);
+                    attroff($win, COLOR_PAIR(2));
+                    ++$char_count;
+                }
 
-        addstring($win, 10, 10, "Time's up!");
+            }
+            ++$line_count;
+            $row += 2;
+            # If not ending because the timer
+            if(! $end ) {
+                @chars = split //, $words_lines[$line_count]->{words};
+                $start = $words_lines[$line_count]->{start};
+            }
+            # We are in the last line in sight, we need to show the next 
+            #if($line_count > 1) {
+            #    addstring($win, 2, $middle_x, $char);
+            #}
+            #refresh($win);
+        }
     }
 
-    getch($win);
 
     return 0;
 }
