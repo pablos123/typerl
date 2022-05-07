@@ -7,8 +7,9 @@ use Readonly;
 use lib "./dict";
 use lib "./config";
 
-Readonly my $GOOD_CHAR_COLOR => 1;
-Readonly my $BAD_CHAR_COLOR  => 2;
+Readonly my $NEUTRAL_CHAR => 0;
+Readonly my $GOOD_CHAR    => 1;
+Readonly my $BAD_CHAR     => 2;
 
 # Define the program title and the menu content
 my $blank_sep = 2;
@@ -31,10 +32,10 @@ sub main {
     start_color;
 
     # Good character
-    init_pair( $GOOD_CHAR_COLOR, COLOR_GREEN, COLOR_BLACK );
+    init_pair( $GOOD_CHAR, COLOR_GREEN, COLOR_BLACK );
 
     # Bad character
-    init_pair( $BAD_CHAR_COLOR, COLOR_RED, COLOR_BLACK );
+    init_pair( $BAD_CHAR, COLOR_RED, COLOR_BLACK );
 
     # Create a new window
     my $win = Curses->new;
@@ -200,8 +201,14 @@ sub play {
     # GAME LOOP
     # ---------------------
     # Prepare for the game loop
-    my $line_count  = 0;
-    my @line_chars  = split //, $words_lines[$line_count]->{words};
+    my $line_count = 0;
+
+    my $char_index = 0;
+    my %line_chars =
+      map { $char_index++ => { char => $_, state => $NEUTRAL_CHAR } } split //,
+      $words_lines[$line_count]->{words};
+    my %chars_count = ( bad => 0, good => 0 );
+
     my $start       = $words_lines[$line_count]->{start};
     my $line_length = $words_lines[$line_count]->{length};
 
@@ -250,15 +257,23 @@ sub play {
                     if ( $input_char eq ' ' ) {
 
                         # Advance all the current word characters
+                        attron( $win, COLOR_PAIR($BAD_CHAR) );
                         until (  $char_count >= $line_length
-                              || $line_chars[$char_count] eq ' ' )
+                              || $line_chars{$char_count}->{char} eq ' ' )
                         {
+                            addch(
+                                $win, $row,
+                                $start + $char_count,
+                                $line_chars{$char_count}->{char}
+                            );
+                            $line_chars{$char_count}->{state} = $BAD_CHAR;
                             ++$char_count;
                         }
+                        attroff( $win, COLOR_PAIR($BAD_CHAR) );
 
                         # Advance all the spaces
                         while ($char_count < $line_length
-                            && $line_chars[$char_count] eq ' ' )
+                            && $line_chars{$char_count}->{char} eq ' ' )
                         {
                             ++$char_count;
                         }
@@ -270,31 +285,34 @@ sub play {
 
                         ++$words_count;
                     }
-                    elsif ( $input_char eq $line_chars[$char_count] )
+                    elsif ( $input_char eq $line_chars{$char_count}->{char} )
+
                     {    # Good character pressed
-                        attron( $win, COLOR_PAIR($GOOD_CHAR_COLOR) );
+                        attron( $win, COLOR_PAIR($GOOD_CHAR) );
                         addch(
                             $win, $row,
                             $start + $char_count,
-                            $line_chars[$char_count]
+                            $line_chars{$char_count}->{char}
                         );
-                        attroff( $win, COLOR_PAIR($GOOD_CHAR_COLOR) );
+                        attroff( $win, COLOR_PAIR($GOOD_CHAR) );
+                        $line_chars{$char_count}->{state} = $GOOD_CHAR;
                         ++$char_count;
                     }
                     else {    # Bad character pressed
-                        attron( $win, COLOR_PAIR($BAD_CHAR_COLOR) );
+                        attron( $win, COLOR_PAIR($BAD_CHAR) );
                         addch(
                             $win, $row,
                             $start + $char_count,
-                            $line_chars[$char_count]
+                            $line_chars{$char_count}->{char}
                         );
-                        attroff( $win, COLOR_PAIR($BAD_CHAR_COLOR) );
+                        attroff( $win, COLOR_PAIR($BAD_CHAR) );
+                        $line_chars{$char_count}->{state} = $BAD_CHAR;
                         ++$char_count;
                     }
                 }
                 else {    # I am in the end of the line
-                     # Print the wrong characters pressed until the space bar is pressed
 
+             # Print the wrong characters pressed until the space bar is pressed
                     until ( $input_char eq ' ' ) {
                         attron( $win, COLOR_PAIR(2) );
                         addch( $win, $row, $start + $char_count, $input_char );
@@ -312,11 +330,28 @@ sub play {
             # If not ending because the timer
             if ( !$timer_end ) {
 
+                # Clean the bad trailing characters for the first line
+                if ( $line_count == 0 ) {
+                    addstring( $win, $row, $start + $line_length,
+                        ' ' x
+                          int( ( ( $max_x - 5 ) / 2 ) - $start + $line_length )
+                    );
+                }
+
                 # From now on im always in the middle row
                 $row = 6;
 
                 ++$line_count;
-                @line_chars  = split //, $words_lines[$line_count]->{words};
+                my %previous_line_chars = %line_chars;
+
+                # Generate the next line
+                $char_index = 0;
+                %line_chars =
+                  map {
+                    $char_index++ => { char => $_, state => $NEUTRAL_CHAR }
+                  }
+                  split //,
+                  $words_lines[$line_count]->{words};
                 $start       = $words_lines[$line_count]->{start};
                 $line_length = $words_lines[$line_count]->{length};
 
@@ -329,11 +364,29 @@ sub play {
                     addstring( $win, $row,     4, ' ' x ( $max_x - 5 ) );
                     addstring( $win, $row + 2, 4, ' ' x ( $max_x - 5 ) );
 
-                    addstring(
-                        $win, $row - 2,
-                        $words_lines[ $line_count - 1 ]->{start},
-                        $words_lines[ $line_count - 1 ]->{words}
-                    );
+                    # Persist the state of the previous line
+                    for (
+                        my $i = 0 ;
+                        $i < $words_lines[ $line_count - 1 ]->{length} ;
+                        ++$i
+                      )
+                    {
+                        if ( $previous_line_chars{$i}->{state} == $GOOD_CHAR ) {
+                            attron( $win, COLOR_PAIR($GOOD_CHAR) );
+                        }
+                        elsif ( $previous_line_chars{$i}->{state} == $BAD_CHAR )
+                        {
+                            attron( $win, COLOR_PAIR($BAD_CHAR) );
+                        }
+                        addch(
+                            $win, $row - 2,
+                            $words_lines[ $line_count - 1 ]->{start} + $i,
+                            $previous_line_chars{$i}->{char}
+                        );
+                        attroff( $win,
+                            COLOR_PAIR($GOOD_CHAR) | COLOR_PAIR($BAD_CHAR) );
+
+                    }
 
                     addstring( $win, $row, $start,
                         $words_lines[$line_count]->{words} );
@@ -343,10 +396,8 @@ sub play {
                         $words_lines[ $line_count + 1 ]->{start},
                         $words_lines[ $line_count + 1 ]->{words}
                     );
-
                 }
             }
-
         }
 
         getch($win);
