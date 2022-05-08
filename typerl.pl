@@ -11,11 +11,30 @@ Readonly my $NEUTRAL_CHAR => 0;
 Readonly my $GOOD_CHAR    => 1;
 Readonly my $BAD_CHAR     => 2;
 
-# Define the program title and the menu content
-my $blank_sep = 2;
-my $timer     = 30;
-my $spaces    = 2;
+# -------------------
+# CONFIGURATION
+# -------------------
+require config;
+my $config = config->new;
 
+if ( $config->{error} ) {
+    print "There are errors in the config file, using defaults...\n";
+    <stdin>;
+}
+elsif ( $config->{bad_defined} ) {
+    print
+      "The value for '$config->{bad_defined}' option is not correct, ",
+      "use the example to see the correct values.\n",
+      "Using the default for that value... Press enter to play\n";
+    <stdin>;
+}
+
+my $blank_sep = $config->{blank_lines};
+my $timer     = $config->{timer};
+my $spaces    = $config->{spaces};
+
+# END CONFIGURATION
+#-----------------------
 main();
 
 exit 0;
@@ -25,7 +44,7 @@ sub main {
     # Initialize curses
     initscr;
     if ( !has_colors ) {
-        print("Your terminal does not support colors! :( \n");
+        print("Your terminal does not support colors!\n");
         endwin;
         exit 1;
     }
@@ -41,7 +60,7 @@ sub main {
     my $win = Curses->new;
 
     # Get the max x value and calculate the middle of the screen width
-    my $max_x    = $win->getmaxx;
+    my $max_x    = getmaxx($win);
     my $middle_x = int( $max_x / 2 );
 
     # Create borders for the window
@@ -49,8 +68,9 @@ sub main {
 
     # MENU INITILIZATION
     # ---------------------
+    # Define the program title and the menu content
     my $title        = "typerl";
-    my @options      = ( "Play", "Settings", "Statistics", "Exit" );
+    my @options      = ( "Play", "Statistics", "Exit" );
     my @options_subs = ( \&play, \&settings, \&statistics );
     my $options_max  = $#options;
 
@@ -60,16 +80,16 @@ sub main {
 
     # Disable the cursor and the output of the pressed character
     # Make the title bold, print it and move the cursor down
-    $win->attron( A_BOLD | noecho | curs_set(0) );
+    attron( $win, A_BOLD | noecho | curs_set(0) );
     addstring( $win, $y, $middle_x - int( ( length $title ) / 2 ), $title );
     $y += $blank_sep;
-    $win->attroff(A_BOLD);
+    attroff( $win, A_BOLD );
 
     # Highlight the first option, and move the cursor
-    $win->attron(A_STANDOUT);
+    attron( $win, A_STANDOUT );
     addstring( $win, $y, $middle_x - int( ( length $options[0] ) / 2 ),
         $options[0] );
-    $win->attroff(A_STANDOUT);
+    attroff( $win, A_STANDOUT );
     $y += $blank_sep;
 
     # Print the options along moving the cursor down
@@ -122,11 +142,11 @@ sub main {
             }
         }
 
-        $win->attron(A_STANDOUT);
+        attron( $win, A_STANDOUT );
         addstring( $win, $y,
             $middle_x - int( ( length $options[$option] ) / 2 ),
             $options[$option] );
-        $win->attroff(A_STANDOUT);
+        attroff( $win, A_STANDOUT );
     }
 
     $win = undef;
@@ -139,11 +159,15 @@ sub play {
     my $win = Curses->new;
 
     # Get the max x value and calculate the middle of the screen width
-    my $max_x    = $win->getmaxx;
+    my $max_x    = getmaxx($win);
     my $middle_x = int( $max_x / 2 );
 
     # Create borders for the window
     box( $win, 0, 0 );
+
+    if ( $config->{show_cursor} ) {
+        attron( $win, curs_set(1) );
+    }
 
     # Prepare the dictionary
     require english;
@@ -163,6 +187,8 @@ sub play {
     my $words_line  = '';
     my $line_len    = 0;
 
+    my $first_start = 0;
+
     # Generate words
     for my $i ( 1 .. 300 ) {
         my $new_word = $words[ int( rand( scalar @words ) ) ];
@@ -176,20 +202,29 @@ sub play {
         if ( !( $i % 10 ) ) {
             ## Add the new generated line to the window
             my $length = length $words_line;
-            my $start  = $middle_x - int( $length / 2 );
+            my $start  = 0;
+            if ( $config->{start_of_line} eq 'fixed' ) {
+                if ( ( $i / 10 ) < 2 ) {
+                    $first_start = $middle_x - int( $length / 2 );
+                }
+                $start = $first_start;
+            }
+            else {
+                $start = $middle_x - int( $length / 2 );
+            }
 
             # Just add three lines
             if ( ( $i / 10 ) < 4 ) {
                 addstring( $win, $row, $start, $words_line );
+
+                # Move the cursor down
+                $row += 2;
             }
 
             # Push the new line of words to the lines array
             # save the $length and the start column
             push @words_lines,
               { words => $words_line, start => $start, length => $length };
-
-            # Move the cursor down
-            $row += 2;
 
             # Reset counters
             $words_line = '';
@@ -249,6 +284,9 @@ sub play {
             my $words_count   = 0;
             my $char_count    = 0;
             my $finished_line = 0;
+
+            move( $win, $row, $start );
+
             until ( $timer_end || $words_count > 9 || $finished_line ) {
                 my $input_char = getch($win);
 
@@ -282,6 +320,8 @@ sub play {
                         if ( $char_count >= $line_length ) {
                             $finished_line = 1;
                         }
+
+                        move( $win, $row, $start + $char_count );
 
                         ++$words_count;
                     }
@@ -332,10 +372,14 @@ sub play {
 
                 # Clean the bad trailing characters for the first line
                 if ( $line_count == 0 ) {
-                    addstring( $win, $row, $start + $line_length,
-                        ' ' x
-                          int( ( ( $max_x - 5 ) / 2 ) - $start + $line_length )
-                    );
+                    for (
+                        my $i = $start + $line_length ;
+                        $i < $max_x - 4 ;
+                        ++$i
+                      )
+                    {
+                        addch( $win, $row, $i, ' ' );
+                    }
                 }
 
                 # From now on im always in the middle row
@@ -383,6 +427,7 @@ sub play {
                             $words_lines[ $line_count - 1 ]->{start} + $i,
                             $previous_line_chars{$i}->{char}
                         );
+
                         attroff( $win,
                             COLOR_PAIR($GOOD_CHAR) | COLOR_PAIR($BAD_CHAR) );
 
@@ -402,6 +447,8 @@ sub play {
 
         getch($win);
     }
+
+    attroff( $win, curs_set(0) );
 
     return 0;
 }
