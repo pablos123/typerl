@@ -29,9 +29,10 @@ elsif ( $config->{bad_defined} ) {
     <stdin>;
 }
 
-my $blank_sep = $config->{blank_lines};
-my $timer     = $config->{timer};
-my $spaces    = $config->{spaces};
+my $blank_sep     = $config->{blank_lines};
+my $timer         = $config->{timer};
+my $spaces        = $config->{spaces};
+my $word_quantity = $config->{word_quantity};
 
 # END CONFIGURATION
 #-----------------------
@@ -192,19 +193,19 @@ sub play {
     # Generate words
     for my $i ( 1 .. 300 ) {
         my $new_word = $words[ int( rand( scalar @words ) ) ];
-        if ( $i % 10 ) {
+        if ( $i % $word_quantity ) {
             $new_word .= ( ' ' x $spaces );
         }
 
         $line_len += int( ( length $new_word ) / 2 );
         $words_line .= $new_word;
 
-        if ( !( $i % 10 ) ) {
+        if ( !( $i % $word_quantity ) ) {
             ## Add the new generated line to the window
             my $length = length $words_line;
             my $start  = 0;
-            if ( $config->{start_of_line} eq 'fixed' ) {
-                if ( ( $i / 10 ) < 2 ) {
+            if ( $config->{start_line_fixed} ) {
+                if ( ( $i / $word_quantity ) < 2 ) {
                     $first_start = $middle_x - int( $length / 2 );
                 }
                 $start = $first_start;
@@ -214,7 +215,7 @@ sub play {
             }
 
             # Just add three lines
-            if ( ( $i / 10 ) < 4 ) {
+            if ( ( $i / $word_quantity ) < 4 ) {
                 addstring( $win, $row, $start, $words_line );
 
                 # Move the cursor down
@@ -287,7 +288,10 @@ sub play {
 
             move( $win, $row, $start );
 
-            until ( $timer_end || $words_count > 9 || $finished_line ) {
+            until (  $timer_end
+                  || $words_count > ( $word_quantity - 1 )
+                  || $finished_line )
+            {
                 my $input_char = getch($win);
 
                 if ( $char_count < $line_length )

@@ -8,15 +8,16 @@ sub new {
     my $options = {};
 
     # Default values
-    $options->{timer}          = 30;
-    $options->{spaces}         = 2;
-    $options->{show_cursor}    = 1;
-    $options->{blank_lines}    = 2;
-    $options->{word_quantity}  = 10;
-    $options->{centered_words} = 1;
-    $options->{start_of_line}  = 'fixed';
-    $options->{error}          = 0;
-    $options->{bad_defined}    = 0;
+    $options->{timer}            = 30;
+    $options->{spaces}           = 1;
+    $options->{show_cursor}      = 1;
+    $options->{blank_lines}      = 2;
+    $options->{word_quantity}    = 10;
+    $options->{centered_words}   = 1;
+    $options->{start_line_fixed} = 1;
+
+    $options->{error}       = 0;
+    $options->{bad_defined} = 0;
 
     if ( -f './config/config' ) {
         my $config_fh     = undef;
@@ -32,7 +33,7 @@ sub new {
             'timer',         'spaces',
             'show_cursor',   'blank_lines',
             'word_quantity', 'centered_words',
-            'start_of_line',
+            'start_line_fixed',
         );
 
         if ($config_string) {
@@ -90,8 +91,8 @@ sub new {
                         }
                         $options->{$option} = $value;
                     }
-                    elsif ( $option eq 'start_of_line' ) {
-                        if ( $value ne 'centered' && $value ne 'fixed' ) {
+                    elsif ( $option eq 'start_line_fixed' ) {
+                        if ( $value != 0 && $value != 1 ) {
                             $options->{bad_defined} = $option;
                             next;
                         }
