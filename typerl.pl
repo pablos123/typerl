@@ -30,14 +30,14 @@ elsif ( $config->{bad_defined} ) {
     <stdin>;
 }
 
-my $timer            = $config->{timer};
-my $spaces           = $config->{spaces};
-my $show_cursor      = $config->{show_cursor};
-my $line_breaks      = $config->{line_breaks};
-my $menu_line_breaks = $config->{menu_line_breaks};
-my $word_quantity    = $config->{word_quantity};
-my $centered_words   = $config->{centered_words};
-my $fixed_line_start = $config->{fixed_line_start};
+Readonly my $timer            => $config->{timer};
+Readonly my $spaces           => $config->{spaces};
+Readonly my $show_cursor      => $config->{show_cursor};
+Readonly my $line_breaks      => $config->{line_breaks};
+Readonly my $menu_line_breaks => $config->{menu_line_breaks};
+Readonly my $word_quantity    => $config->{word_quantity};
+Readonly my $centered_words   => $config->{centered_words};
+Readonly my $fixed_line_start => $config->{fixed_line_start};
 
 Readonly my $MAX_LINES => int( $MAX_WORDS / $word_quantity );
 
@@ -308,16 +308,18 @@ sub play {
         until ($timer_end) {
 
             # If I finished all the words, wait for the timer to end
-            # almost impossible unless you spam the space bar
-            if($total_words >= ( $MAX_WORDS - ( $MAX_WORDS % $word_quantity ) ) ) {
+            # Almost impossible unless you spam the space bar
+            if ( $total_words >=
+                ( $MAX_WORDS - ( $MAX_WORDS % $word_quantity ) ) )
+            {
                 # Make getch equals to ERR if there is no character to be
-                # readed (Clean stdin while im waiting)
-                nodelay($win, 1);
-                while(!$timer_end) {
+                # readed (Clean stdin while I'm waiting)
+                nodelay( $win, 1 );
+                while ( !$timer_end ) {
                     getch($win);
-                    sleep(0.2);
+                    sleep(0.3);
                 }
-                nodelay($win, 0);
+                nodelay( $win, 0 );
                 last;
             }
 
