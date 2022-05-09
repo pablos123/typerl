@@ -11,7 +11,8 @@ sub new {
     $options->{timer}            = 30;
     $options->{spaces}           = 1;
     $options->{show_cursor}      = 1;
-    $options->{blank_lines}      = 2;
+    $options->{line_breaks}      = 2;
+    $options->{menu_line_breaks} = 2;
     $options->{word_quantity}    = 10;
     $options->{centered_words}   = 1;
     $options->{start_line_fixed} = 1;
@@ -30,10 +31,10 @@ sub new {
         close $config_fh;
 
         my @option_names = (
-            'timer',         'spaces',
-            'show_cursor',   'blank_lines',
-            'word_quantity', 'centered_words',
-            'start_line_fixed',
+            'timer',            'spaces',
+            'show_cursor',      'line_breaks',
+            'word_quantity',    'centered_words',
+            'start_line_fixed', 'menu_line_breaks',
         );
 
         if ($config_string) {
@@ -70,7 +71,14 @@ sub new {
                         }
                         $options->{$option} = $value;
                     }
-                    elsif ( $option eq 'blank_lines' ) {
+                    elsif ( $option eq 'line_breaks' ) {
+                        if ( $value != 1 && $value != 2 && $value != 3 ) {
+                            $options->{bad_defined} = $option;
+                            next;
+                        }
+                        $options->{$option} = $value;
+                    }
+                    elsif ( $option eq 'menu_line_breaks' ) {
                         if ( $value != 1 && $value != 2 && $value != 3 ) {
                             $options->{bad_defined} = $option;
                             next;

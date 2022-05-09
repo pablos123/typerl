@@ -4,7 +4,9 @@ spaces           => 1,     (1, 2)
 
 show_cursor      => 0,     (0, 1)
 
-blank_lines      => 2,     (1, 2, 3)
+line_breaks      => 2,     (1, 2, 3)
+
+menu_line_breaks => 2,     (1, 2, 3)
 
 word_quantity    => 10,    (number between 1 and 12)
 

@@ -29,10 +29,14 @@ elsif ( $config->{bad_defined} ) {
     <stdin>;
 }
 
-my $blank_sep     = $config->{blank_lines};
-my $timer         = $config->{timer};
-my $spaces        = $config->{spaces};
-my $word_quantity = $config->{word_quantity};
+my $timer            = $config->{timer};
+my $spaces           = $config->{spaces};
+my $show_cursor      = $config->{show_cursor};
+my $line_breaks      = $config->{line_breaks};
+my $menu_line_breaks = $config->{menu_line_breaks};
+my $word_quantity    = $config->{word_quantity};
+my $centered_words   = $config->{centered_words};
+my $start_line_fixed = $config->{start_line_fixed};
 
 # END CONFIGURATION
 #-----------------------
@@ -77,13 +81,13 @@ sub main {
 
     # ---------------------
 
-    my $y = $blank_sep;
+    my $y = $menu_line_breaks;
 
     # Disable the cursor and the output of the pressed character
     # Make the title bold, print it and move the cursor down
     attron( $win, A_BOLD | noecho | curs_set(0) );
     addstring( $win, $y, $middle_x - int( ( length $title ) / 2 ), $title );
-    $y += $blank_sep;
+    $y += $menu_line_breaks;
     attroff( $win, A_BOLD );
 
     # Highlight the first option, and move the cursor
@@ -91,20 +95,20 @@ sub main {
     addstring( $win, $y, $middle_x - int( ( length $options[0] ) / 2 ),
         $options[0] );
     attroff( $win, A_STANDOUT );
-    $y += $blank_sep;
+    $y += $menu_line_breaks;
 
     # Print the options along moving the cursor down
     for my $option_index ( 1 .. $#options ) {
         addstring( $win, $y,
             $middle_x - int( ( length $options[$option_index] ) / 2 ),
             $options[$option_index] );
-        $y += $blank_sep;
+        $y += $menu_line_breaks;
     }
 
     # Prepare for the infinite loop
     my $move   = "";
     my $option = 0;
-    $y = $blank_sep * 2;    # The y position of the first element
+    $y = $menu_line_breaks * 2;    # The y position of the first element
 
     while (1) {
         $move = getch($win);
@@ -113,21 +117,21 @@ sub main {
             $options[$option] );
         if ( $move eq "j" ) {
             if ( $option == $options_max ) {
-                $y      = $blank_sep * 2;
+                $y      = $menu_line_breaks * 2;
                 $option = 0;
             }
             else {
-                $y += $blank_sep;
+                $y += $menu_line_breaks;
                 $option++;
             }
         }
         elsif ( $move eq "k" ) {
             if ( $option == 0 ) {
-                $y      = $options_max * $blank_sep + $blank_sep * 2;
+                $y = $options_max * $menu_line_breaks + $menu_line_breaks * 2;
                 $option = $options_max;
             }
             else {
-                $y -= $blank_sep;
+                $y -= $menu_line_breaks;
                 $option--;
             }
         }
@@ -166,7 +170,7 @@ sub play {
     # Create borders for the window
     box( $win, 0, 0 );
 
-    if ( $config->{show_cursor} ) {
+    if ($show_cursor) {
         attron( $win, curs_set(1) );
     }
 
@@ -175,9 +179,23 @@ sub play {
     my $dict  = english->new;
     my @words = @{ $dict->{words} };
 
-    # The y axis the cursor is in it, for printing the words in the correct
+    # The cursor y axis value, for printing the words in the correct
     # place
-    my $row = 4;
+
+    my $first_row = 0;
+    if ($centered_words) {
+
+        # I want to place the lines in the middle of the screen
+        my $middle_y = int( getmaxy($win) / 2 );
+        $first_row = $middle_y - $line_breaks;
+    }
+    else {
+
+        # Just put the lines on top of the screen
+        $first_row = $line_breaks * 2;
+    }
+
+    my $row = $first_row;
 
     # ---------------------
     # PREPARE WORDS
@@ -204,7 +222,7 @@ sub play {
             ## Add the new generated line to the window
             my $length = length $words_line;
             my $start  = 0;
-            if ( $config->{start_line_fixed} ) {
+            if ($start_line_fixed) {
                 if ( ( $i / $word_quantity ) < 2 ) {
                     $first_start = $middle_x - int( $length / 2 );
                 }
@@ -219,7 +237,7 @@ sub play {
                 addstring( $win, $row, $start, $words_line );
 
                 # Move the cursor down
-                $row += 2;
+                $row += $line_breaks;
             }
 
             # Push the new line of words to the lines array
@@ -249,7 +267,7 @@ sub play {
     my $line_length = $words_lines[$line_count]->{length};
 
     # Reset the cursor y position just for the first line
-    $row = 4;
+    $row = $first_row;
 
     # ------------------------------------------
     # TIMER
@@ -387,7 +405,7 @@ sub play {
                 }
 
                 # From now on im always in the middle row
-                $row = 6;
+                $row = $first_row + $line_breaks;
 
                 ++$line_count;
                 my %previous_line_chars = %line_chars;
@@ -408,9 +426,11 @@ sub play {
                 if ( $line_count > 1 ) {
 
                     # Clean the existing lines
-                    addstring( $win, $row - 2, 4, ' ' x ( $max_x - 5 ) );
-                    addstring( $win, $row,     4, ' ' x ( $max_x - 5 ) );
-                    addstring( $win, $row + 2, 4, ' ' x ( $max_x - 5 ) );
+                    addstring( $win, $row - $line_breaks,
+                        4, ' ' x ( $max_x - 5 ) );
+                    addstring( $win, $row, 4, ' ' x ( $max_x - 5 ) );
+                    addstring( $win, $row + $line_breaks,
+                        4, ' ' x ( $max_x - 5 ) );
 
                     # Persist the state of the previous line
                     for (
@@ -427,7 +447,8 @@ sub play {
                             attron( $win, COLOR_PAIR($BAD_CHAR) );
                         }
                         addch(
-                            $win, $row - 2,
+                            $win,
+                            $row - $line_breaks,
                             $words_lines[ $line_count - 1 ]->{start} + $i,
                             $previous_line_chars{$i}->{char}
                         );
@@ -441,7 +462,8 @@ sub play {
                         $words_lines[$line_count]->{words} );
 
                     addstring(
-                        $win, $row + 2,
+                        $win,
+                        $row + $line_breaks,
                         $words_lines[ $line_count + 1 ]->{start},
                         $words_lines[ $line_count + 1 ]->{words}
                     );
