@@ -10,6 +10,7 @@ use lib "./config";
 Readonly my $NEUTRAL_CHAR => 0;
 Readonly my $GOOD_CHAR    => 1;
 Readonly my $BAD_CHAR     => 2;
+Readonly my $MAX_WORDS    => 300;
 
 # -------------------
 # CONFIGURATION
@@ -36,7 +37,9 @@ my $line_breaks      = $config->{line_breaks};
 my $menu_line_breaks = $config->{menu_line_breaks};
 my $word_quantity    = $config->{word_quantity};
 my $centered_words   = $config->{centered_words};
-my $start_line_fixed = $config->{start_line_fixed};
+my $fixed_line_start = $config->{fixed_line_start};
+
+Readonly my $MAX_LINES => int( $MAX_WORDS / $word_quantity );
 
 # END CONFIGURATION
 #-----------------------
@@ -209,7 +212,7 @@ sub play {
     my $first_start = 0;
 
     # Generate words
-    for my $i ( 1 .. 300 ) {
+    for my $i ( 1 .. $MAX_WORDS ) {
         my $new_word = $words[ int( rand( scalar @words ) ) ];
         if ( $i % $word_quantity ) {
             $new_word .= ( ' ' x $spaces );
@@ -222,7 +225,7 @@ sub play {
             ## Add the new generated line to the window
             my $length = length $words_line;
             my $start  = 0;
-            if ($start_line_fixed) {
+            if ($fixed_line_start) {
                 if ( ( $i / $word_quantity ) < 2 ) {
                     $first_start = $middle_x - int( $length / 2 );
                 }
@@ -266,6 +269,9 @@ sub play {
     my $start       = $words_lines[$line_count]->{start};
     my $line_length = $words_lines[$line_count]->{length};
 
+    # To wait if all words are completed
+    my $total_words = 0;
+
     # Reset the cursor y position just for the first line
     $row = $first_row;
 
@@ -300,6 +306,21 @@ sub play {
     else {    # Parent process, play here
 
         until ($timer_end) {
+
+            # If I finished all the words, wait for the timer to end
+            # almost impossible unless you spam the space bar
+            if($total_words >= ( $MAX_WORDS - ( $MAX_WORDS % $word_quantity ) ) ) {
+                # Make getch equals to ERR if there is no character to be
+                # readed (Clean stdin while im waiting)
+                nodelay($win, 1);
+                while(!$timer_end) {
+                    getch($win);
+                    sleep(0.2);
+                }
+                nodelay($win, 0);
+                last;
+            }
+
             my $words_count   = 0;
             my $char_count    = 0;
             my $finished_line = 0;
@@ -308,7 +329,9 @@ sub play {
 
             until (  $timer_end
                   || $words_count > ( $word_quantity - 1 )
-                  || $finished_line )
+                  || $finished_line
+                  || $total_words >=
+                  ( $MAX_WORDS - ( $MAX_WORDS % $word_quantity ) ) )
             {
                 my $input_char = getch($win);
 
@@ -346,6 +369,7 @@ sub play {
                         move( $win, $row, $start + $char_count );
 
                         ++$words_count;
+                        ++$total_words;
                     }
                     elsif ( $input_char eq $line_chars{$char_count}->{char} )
 
@@ -386,11 +410,15 @@ sub play {
                     }
                     $finished_line = 1;
                     ++$words_count;
+                    ++$total_words;
                 }
             }
 
-            # If not ending because the timer
-            if ( !$timer_end ) {
+            # If not ending because the timer or for max words reached
+            if (  !$timer_end
+                && $total_words <
+                ( $MAX_WORDS - ( $MAX_WORDS % $word_quantity ) ) )
+            {
 
                 # Clean the bad trailing characters for the first line
                 if ( $line_count == 0 ) {
@@ -461,12 +489,14 @@ sub play {
                     addstring( $win, $row, $start,
                         $words_lines[$line_count]->{words} );
 
-                    addstring(
-                        $win,
-                        $row + $line_breaks,
-                        $words_lines[ $line_count + 1 ]->{start},
-                        $words_lines[ $line_count + 1 ]->{words}
-                    );
+                    if ( $line_count < ( $MAX_LINES - 1 ) ) {
+                        addstring(
+                            $win,
+                            $row + $line_breaks,
+                            $words_lines[ $line_count + 1 ]->{start},
+                            $words_lines[ $line_count + 1 ]->{words}
+                        );
+                    }
                 }
             }
         }

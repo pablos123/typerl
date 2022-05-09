@@ -15,7 +15,7 @@ sub new {
     $options->{menu_line_breaks} = 2;
     $options->{word_quantity}    = 10;
     $options->{centered_words}   = 1;
-    $options->{start_line_fixed} = 1;
+    $options->{fixed_line_start} = 1;
 
     $options->{error}       = 0;
     $options->{bad_defined} = 0;
@@ -34,7 +34,7 @@ sub new {
             'timer',            'spaces',
             'show_cursor',      'line_breaks',
             'word_quantity',    'centered_words',
-            'start_line_fixed', 'menu_line_breaks',
+            'fixed_line_start', 'menu_line_breaks',
         );
 
         if ($config_string) {
@@ -99,7 +99,7 @@ sub new {
                         }
                         $options->{$option} = $value;
                     }
-                    elsif ( $option eq 'start_line_fixed' ) {
+                    elsif ( $option eq 'fixed_line_start' ) {
                         if ( $value != 0 && $value != 1 ) {
                             $options->{bad_defined} = $option;
                             next;

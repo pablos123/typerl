@@ -12,4 +12,4 @@ word_quantity    => 10,    (number between 1 and 12)
 
 centered_words   => 1,     (0, 1)
 
-start_line_fixed => 1,     (0, 1)
+fixed_line_start => 1,     (0, 1)
