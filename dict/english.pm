@@ -1,5 +1,7 @@
 package english;
 
+use utf8;
+
 my @words = (
     'the',     'be',       'of',      'and',      'a',       'to',
     'in',      'he',       'have',    'it',       'that',    'for',

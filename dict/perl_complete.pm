@@ -1,5 +1,7 @@
 package perl;
 
+use utf8;
+
 my @words = (
     '-A',                            'END',
     'length',                        'setpgrp',
