@@ -16,7 +16,7 @@ Readonly my $MAX_WORDS    => 300;
 # CONFIGURATION
 # -------------------
 require config;
-my $config = config->new;
+Readonly my $config => config->new;
 
 if ( $config->{error} ) {
     print "There are errors in the config file, using defaults...\n";
@@ -270,7 +270,7 @@ sub play {
     my $line_length = $words_lines[$line_count]->{length};
 
     # To wait if all words are completed
-    my $total_words = 0;
+    my $wait = 0;
 
     # Reset the cursor y position just for the first line
     $row = $first_row;
@@ -309,9 +309,8 @@ sub play {
 
             # If I finished all the words, wait for the timer to end
             # Almost impossible unless you spam the space bar
-            if ( $total_words >=
-                ( $MAX_WORDS - ( $MAX_WORDS % $word_quantity ) ) )
-            {
+            if ($wait) {
+
                 # Make getch equals to ERR if there is no character to be
                 # readed (Clean stdin while I'm waiting)
                 nodelay( $win, 1 );
@@ -331,9 +330,7 @@ sub play {
 
             until (  $timer_end
                   || $words_count > ( $word_quantity - 1 )
-                  || $finished_line
-                  || $total_words >=
-                  ( $MAX_WORDS - ( $MAX_WORDS % $word_quantity ) ) )
+                  || $finished_line )
             {
                 my $input_char = getch($win);
 
@@ -371,7 +368,6 @@ sub play {
                         move( $win, $row, $start + $char_count );
 
                         ++$words_count;
-                        ++$total_words;
                     }
                     elsif ( $input_char eq $line_chars{$char_count}->{char} )
 
@@ -412,15 +408,15 @@ sub play {
                     }
                     $finished_line = 1;
                     ++$words_count;
-                    ++$total_words;
                 }
             }
 
-            # If not ending because the timer or for max words reached
-            if (  !$timer_end
-                && $total_words <
-                ( $MAX_WORDS - ( $MAX_WORDS % $word_quantity ) ) )
-            {
+            if ( $line_count >= ( $MAX_LINES - 1 ) ) {
+                $wait = 1;
+            }
+
+            # If not ending because the timer and not have to wait
+            if ( !$timer_end && !$wait ) {
 
                 # Clean the bad trailing characters for the first line
                 if ( $line_count == 0 ) {
@@ -491,6 +487,7 @@ sub play {
                     addstring( $win, $row, $start,
                         $words_lines[$line_count]->{words} );
 
+                    # I don't want to draw the next line if I'm in the last line
                     if ( $line_count < ( $MAX_LINES - 1 ) ) {
                         addstring(
                             $win,
