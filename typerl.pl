@@ -188,7 +188,7 @@ sub play {
     my $first_row = 0;
     if ($centered_words) {
 
-        # I want to place the lines in the middle of the screen
+        # Place the lines in the middle of the screen
         my $middle_y = int( getmaxy($win) / 2 );
         $first_row = $middle_y - $line_breaks;
     }
@@ -197,8 +197,6 @@ sub play {
         # Just put the lines on top of the screen
         $first_row = $line_breaks * 2;
     }
-
-    my $row = $first_row;
 
     # ---------------------
     # PREPARE WORDS
@@ -235,14 +233,6 @@ sub play {
                 $start = $middle_x - int( $length / 2 );
             }
 
-            # Just add three lines
-            if ( ( $i / $word_quantity ) < 4 ) {
-                addstring( $win, $row, $start, $words_line );
-
-                # Move the cursor down
-                $row += $line_breaks;
-            }
-
             # Push the new line of words to the lines array
             # save the $length and the start column
             push @words_lines,
@@ -257,6 +247,20 @@ sub play {
     # ---------------------
     # GAME LOOP
     # ---------------------
+
+    # Reset the row to the first row
+    my $row = $first_row;
+
+    # Draw three lines to begin the game.
+    for my $start_line ( 0 .. 2 ) {
+        addstring(
+            $win,
+            $row + ( $start_line * $line_breaks ),
+            $words_lines[$start_line]->{start},
+            $words_lines[$start_line]->{words}
+        );
+    }
+
     # Prepare for the game loop
     my $line_count = 0;
 
@@ -271,9 +275,6 @@ sub play {
 
     # To wait if all words are completed
     my $wait = 0;
-
-    # Reset the cursor y position just for the first line
-    $row = $first_row;
 
     # ------------------------------------------
     # TIMER
@@ -300,7 +301,7 @@ sub play {
         exit 0;
     }
 
-    # TIMER FINISH
+    # END TIMER
     # ------------------------------------------
 
     else {    # Parent process, play here
@@ -505,10 +506,6 @@ sub play {
 
     attroff( $win, curs_set(0) );
 
-    return 0;
-}
-
-sub settings {
     return 0;
 }
 
