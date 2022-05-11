@@ -21,7 +21,8 @@ require config;
 Readonly my $config => config->new;
 
 if ( $config->{error} ) {
-    print "There are errors in the config file, using defaults...\n";
+    print
+"There are errors in the config file, using defaults... Press enter to play\n";
     <stdin>;
 }
 elsif ( $config->{bad_defined} ) {
@@ -83,6 +84,20 @@ sub main {
     my @options      = ( "Play", "Statistics", "Exit" );
     my @options_subs = ( \&play, \&settings, \&statistics );
     my $options_max  = $#options;
+
+    for my $option ( $title, @options ) {
+
+        # Error due to the terminal being too small
+        # Substract four for the box to render properly and for error margin
+        if ( length $option > ( $max_x - 4 ) ) {
+            endwin;
+            print
+"The terminal is too small!\n The menu cannot be generated properly... You can:\n",
+              "- Make the terminal bigger\n",
+              "- Make the words in the menu smaller\n";
+            exit 1;
+        }
+    }
 
     # ---------------------
 
@@ -209,6 +224,7 @@ sub play {
     my $words_line  = '';
     my $line_len    = 0;
 
+    # For fixed line starts
     my $first_start = 0;
 
     # Generate words
@@ -225,14 +241,36 @@ sub play {
             ## Add the new generated line to the window
             my $length = length $words_line;
             my $start  = 0;
+
+            # Start lines always in the same column
             if ($fixed_line_start) {
+
+                # If this is the first line, calculate the start for all
+                # the other lines
                 if ( ( $i / $word_quantity ) < 2 ) {
                     $first_start = $middle_x - int( $length / 2 );
                 }
+
+                # Always make the start of the line like the start of
+                # the first line
                 $start = $first_start;
             }
+
+            # Start the lines always in the middle of the screen
             else {
                 $start = $middle_x - int( $length / 2 );
+            }
+
+            # Error due to the terminal being too small
+            # Substract four for the box to render properly and for error margin
+            if ( $length > ( $max_x - 4 ) ) {
+                endwin;
+                print
+"The terminal is too small!\n The words cannot be generated properly... You can:\n",
+                  "- Make the terminal bigger\n",
+"- Make the program to generate less words per line with the config parameter 'word_quantity'\n",
+                  "- Make the words in the dictionary smaller\n";
+                exit 1;
             }
 
             # Push the new line of words to the lines array
