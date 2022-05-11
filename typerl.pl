@@ -116,7 +116,7 @@ sub main {
     $y = $menu_line_breaks * 2;    # The y position of the first element
 
     while (1) {
-        $move = getch($win);
+        $move = getchar($win);
         addstring( $win, $y,
             $middle_x - int( ( length $options[$option] ) / 2 ),
             $options[$option] );
@@ -180,8 +180,8 @@ sub play {
     }
 
     # Prepare the dictionary
-    require english;
-    my $dict  = english->new;
+    require spanish;
+    my $dict  = spanish->new;
     my @words = @{ $dict->{words} };
 
     # The cursor y axis value, for printing the words in the correct
@@ -314,11 +314,11 @@ sub play {
             # Almost impossible unless you spam the space bar
             if ($wait) {
 
-                # Make getch equals to ERR if there is no character to be
+                # Make getchar equals to ERR if there is no character to be
                 # readed (Clean stdin while I'm waiting)
                 nodelay( $win, 1 );
                 while ( !$timer_end ) {
-                    getch($win);
+                    getchar($win);
                     sleep(0.3);
                 }
                 nodelay( $win, 0 );
@@ -335,7 +335,7 @@ sub play {
                   || $words_count > ( $word_quantity - 1 )
                   || $finished_line )
             {
-                my $input_char = getch($win);
+                my $input_char = getchar($win);
 
                 if ( $char_count < $line_length )
                 {    # I am not in the end of the line
@@ -346,7 +346,7 @@ sub play {
                         until (  $char_count >= $line_length
                               || $line_chars{$char_count}->{char} eq ' ' )
                         {
-                            addch(
+                            addstring(
                                 $win, $row,
                                 $start + $char_count,
                                 $line_chars{$char_count}->{char}
@@ -376,7 +376,7 @@ sub play {
 
                     {    # Good character pressed
                         attron( $win, COLOR_PAIR($GOOD_CHAR) );
-                        addch(
+                        addstring(
                             $win, $row,
                             $start + $char_count,
                             $line_chars{$char_count}->{char}
@@ -387,7 +387,7 @@ sub play {
                     }
                     else {    # Bad character pressed
                         attron( $win, COLOR_PAIR($BAD_CHAR) );
-                        addch(
+                        addstring(
                             $win, $row,
                             $start + $char_count,
                             $line_chars{$char_count}->{char}
@@ -402,12 +402,13 @@ sub play {
              # Print the wrong characters pressed until the space bar is pressed
                     until ( $input_char eq ' ' ) {
                         attron( $win, COLOR_PAIR(2) );
-                        addch( $win, $row, $start + $char_count, $input_char );
+                        addstring( $win, $row, $start + $char_count,
+                            $input_char );
                         attroff( $win, COLOR_PAIR(2) );
                         ++$char_count;
 
                         # Get next character
-                        $input_char = getch($win);
+                        $input_char = getchar($win);
                     }
                     $finished_line = 1;
                     ++$words_count;
@@ -429,7 +430,7 @@ sub play {
                         ++$i
                       )
                     {
-                        addch( $win, $row, $i, ' ' );
+                        addstring( $win, $row, $i, ' ' );
                     }
                 }
 
@@ -475,7 +476,7 @@ sub play {
                         {
                             attron( $win, COLOR_PAIR($BAD_CHAR) );
                         }
-                        addch(
+                        addstring(
                             $win,
                             $row - $line_breaks,
                             $words_lines[ $line_count - 1 ]->{start} + $i,
@@ -503,7 +504,7 @@ sub play {
             }
         }
 
-        getch($win);
+        getchar($win);
     }
 
     attroff( $win, curs_set(0) );
