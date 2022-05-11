@@ -339,7 +339,7 @@ sub play {
 
                 if ( $char_count < $line_length )
                 {    # I am not in the end of the line
-                    if ( $input_char eq ' ' ) {
+                    if ( defined $input_char && $input_char eq ' ' ) {
 
                         # Advance all the current word characters
                         attron( $win, COLOR_PAIR($BAD_CHAR) );
@@ -372,7 +372,8 @@ sub play {
 
                         ++$words_count;
                     }
-                    elsif ( $input_char eq $line_chars{$char_count}->{char} )
+                    elsif ( defined $input_char
+                        && $input_char eq $line_chars{$char_count}->{char} )
 
                     {    # Good character pressed
                         attron( $win, COLOR_PAIR($GOOD_CHAR) );
@@ -400,7 +401,7 @@ sub play {
                 else {    # I am in the end of the line
 
              # Print the wrong characters pressed until the space bar is pressed
-                    until ( $input_char eq ' ' ) {
+                    until ( defined $input_char && $input_char eq ' ' ) {
                         attron( $win, COLOR_PAIR(2) );
                         addstring( $win, $row, $start + $char_count,
                             $input_char );
