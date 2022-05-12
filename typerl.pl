@@ -55,8 +55,8 @@ sub main {
     # Initialize curses
     initscr;
     if ( !has_colors ) {
-        print("Your terminal does not support colors!\n");
         endwin;
+        print("Your terminal does not support colors!\n");
         exit 1;
     }
     start_color;
@@ -145,7 +145,7 @@ sub main {
         addstring( $win, $y,
             $middle_x - int( ( length $options[$option] ) / 2 ),
             $options[$option] );
-        if ( $move eq "j" ) {
+        if ( $move eq 'j' ) {
             if ( $option == $options_max ) {
                 $y      = $menu_line_breaks * 2;
                 $option = 0;
@@ -155,7 +155,7 @@ sub main {
                 $option++;
             }
         }
-        elsif ( $move eq "k" ) {
+        elsif ( $move eq 'k' ) {
             if ( $option == 0 ) {
                 $y = $options_max * $menu_line_breaks + $menu_line_breaks * 2;
                 $option = $options_max;
@@ -165,7 +165,7 @@ sub main {
                 $option--;
             }
         }
-        elsif ( $move eq "l" ) {
+        elsif ( $move eq 'l' ) {
 
             # Exit option
             if ( $option == $options_max ) {
@@ -350,7 +350,11 @@ sub play {
     # the father is the main game, the child will signal
     # when time is up!
     my $pid = fork;
-    if ( !defined $pid ) { die "Error forking timer"; }
+    if ( !defined $pid ) {
+        endwin;
+        print "Error forking timer\n";
+        exit 1;
+    }
 
     if ( $pid == 0 ) {    # Child process, run the timer here
                           # Sleep for the amount of seconds needed
