@@ -99,6 +99,16 @@ sub main {
         }
     }
 
+    # Check if the three lines of words will fit in the terminal window
+    my $menu_last_row = ( scalar @options + 1 ) * $menu_line_breaks;
+    if ( $menu_last_row > ( getmaxy($win) - 4 ) ) {
+        endwin;
+        print
+"The terminal is too small!\n The menu cannot be generated properly... You can:\n",
+          "- Make the terminal bigger\n";
+        exit 1;
+    }
+
     # ---------------------
 
     my $y = $menu_line_breaks;
@@ -213,6 +223,16 @@ sub play {
 
         # Just put the lines on top of the screen
         $first_row = $line_breaks * 2;
+    }
+
+    # Check if the three lines of words will fit in the terminal window
+    my $last_row = $first_row + ( 2 * $line_breaks );
+    if ( $last_row > ( getmaxy($win) - 4 ) ) {
+        endwin;
+        print
+"The terminal is too small!\n The words cannot be generated properly... You can:\n",
+          "- Make the terminal bigger\n";
+        exit 1;
     }
 
     # ---------------------
@@ -446,8 +466,21 @@ sub play {
                         attroff( $win, COLOR_PAIR(2) );
                         ++$char_count;
 
-                        # Get next character
-                        $input_char = getchar($win);
+                        # I'm not close to the border of the window
+                        if ( $start + $char_count < ( $max_x - 4 ) ) {
+
+                            # Get next character
+                            $input_char = getchar($win);
+                        }
+                        else { # I'm close to the border stop writing characters
+                            until ( defined $input_char && $input_char eq ' ' )
+                            {
+
+                                # Get next character, if this is not a space
+                                # do nothing
+                                $input_char = getchar($win);
+                            }
+                        }
                     }
                     $finished_line = 1;
                     ++$words_count;
