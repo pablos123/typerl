@@ -79,7 +79,7 @@ sub typerl {
     # Define the program title and the menu content
     my $title        = "typerl";
     my @options      = ( "Play", "Statistics", "Exit" );
-    my @options_subs = ( \&play, \&settings, \&statistics );
+    my @options_subs = ( \&play, \&statistics );
     my $options_max  = $#options;
 
     # Terminal size errors
@@ -142,7 +142,7 @@ sub typerl {
     }
 
     # Prepare for the infinite loop
-    my $move   = "";
+    my $move   = '';
     my $key    = 0;
     my $option = 0;
     $y = $menu_line_breaks * 2;    # The y position of the first element
@@ -422,7 +422,6 @@ sub play {
                 last;
             }
 
-            my $words_count   = 0;
             my $char_count    = 0;
             my $finished_line = 0;
             my $line_again    = 0;
@@ -431,15 +430,11 @@ sub play {
             move( $win, $row, $start );
 
             until (  $timer_end
-                  || $words_count > ( $word_quantity - 1 )
+                  || $char_count >= $line_length
                   || $finished_line )
             {
-                if ( !$line_again ) {
-                    ( $input_char, $key ) = getchar($win);
-                }
-                else {
-                    $line_again = 0;
-                }
+
+                ( $input_char, $key ) = getchar($win);
 
                 # Function keys handler
                 if ( defined $key ) {
@@ -463,122 +458,62 @@ sub play {
                     }
                 }
 
-                if ( $char_count < $line_length )
-                {    # I am not in the end of the line
-                    if ( defined $input_char && $input_char eq ' ' ) {
+                if ( defined $input_char && $input_char eq ' ' ) {
 
-                        # Advance all the current word characters
-                        attron( $win, COLOR_PAIR($BAD_CHAR) );
-                        until (  $char_count >= $line_length
-                              || $line_chars{$char_count}->{char} eq ' ' )
-                        {
-                            addstring(
-                                $win, $row,
-                                $start + $char_count,
-                                $line_chars{$char_count}->{char}
-                            );
-                            $line_chars{$char_count}->{state} = $BAD_CHAR;
-                            ++$char_count;
-                        }
-                        attroff( $win, COLOR_PAIR($BAD_CHAR) );
-
-                        # Advance all the spaces
-                        while ($char_count < $line_length
-                            && $line_chars{$char_count}->{char} eq ' ' )
-                        {
-                            ++$char_count;
-                        }
-
-                        # If I am at the end of the line
-                        if ( $char_count >= $line_length ) {
-                            $finished_line = 1;
-                        }
-
-                        move( $win, $row, $start + $char_count );
-
-                        ++$words_count;
-                    }
-                    elsif ( defined $input_char
-                        && $input_char eq $line_chars{$char_count}->{char} )
-
-                    {    # Good character pressed
-                        attron( $win, COLOR_PAIR($GOOD_CHAR) );
+                    # Advance all the current word characters
+                    attron( $win, COLOR_PAIR($BAD_CHAR) );
+                    until (  $char_count >= $line_length
+                          || $line_chars{$char_count}->{char} eq ' ' )
+                    {
                         addstring(
                             $win, $row,
                             $start + $char_count,
                             $line_chars{$char_count}->{char}
                         );
-                        attroff( $win, COLOR_PAIR($GOOD_CHAR) );
-                        $line_chars{$char_count}->{state} = $GOOD_CHAR;
-                        ++$char_count;
-                    }
-                    else {    # Bad character pressed
-                        attron( $win, COLOR_PAIR($BAD_CHAR) );
-                        addstring(
-                            $win, $row,
-                            $start + $char_count,
-                            $line_chars{$char_count}->{char}
-                        );
-                        attroff( $win, COLOR_PAIR($BAD_CHAR) );
                         $line_chars{$char_count}->{state} = $BAD_CHAR;
                         ++$char_count;
                     }
-                }
-                else {    # I am in the end of the line
+                    attroff( $win, COLOR_PAIR($BAD_CHAR) );
 
-             # Print the wrong characters pressed until the space bar is pressed
-             # or until I delete characters to the end of the line
-
-                    until (  $char_count < $line_length
-                          || defined $input_char && $input_char eq ' '
-                          || $line_again )
+                    # Advance all the spaces
+                    while ($char_count < $line_length
+                        && $line_chars{$char_count}->{char} eq ' ' )
                     {
-                        # Function keys handler
-                        if ( defined $key ) {
-
-                            # Eraser implementation
-                            if ( $key == KEY_BACKSPACE ) {
-                                if ( $char_count > $line_length ) {
-                                    --$char_count;
-                                    attroff( $win,
-                                        COLOR_PAIR($GOOD_CHAR) |
-                                          COLOR_PAIR($BAD_CHAR) );
-
-                                    addstring( $win, $row, $start + $char_count,
-                                        ' ' );
-                                    move( $win, $row, $start + $char_count );
-                                }
-                                else {
-                                    $line_again = 1;
-                                }
-                            }
-                            if ( !$line_again ) {
-                                ( $input_char, $key ) = getchar($win);
-                            }
-                        }
-                        else {
-
-                            # I'm not close to the border of the window
-                            if ( $start + $char_count < ( $max_x - 4 ) ) {
-                                attron( $win, COLOR_PAIR(2) );
-                                addstring( $win, $row, $start + $char_count,
-                                    $input_char );
-                                attroff( $win, COLOR_PAIR(2) );
-                                ++$char_count;
-
-                            }
-
-                            # Get next character
-                            ( $input_char, $key ) = getchar($win);
-                        }
+                        ++$char_count;
                     }
 
-                    # Finished because all the characters are writen
-                    # And I'm not in the line again
-                    if ( $char_count >= $line_length && !$line_again ) {
+                    # If I am at the end of the line
+                    if ( $char_count >= $line_length ) {
                         $finished_line = 1;
-                        ++$words_count;
                     }
+
+                    move( $win, $row, $start + $char_count );
+
+                }
+                elsif ( defined $input_char
+                    && $input_char eq $line_chars{$char_count}->{char} )
+
+                {    # Good character pressed
+                    attron( $win, COLOR_PAIR($GOOD_CHAR) );
+                    addstring(
+                        $win, $row,
+                        $start + $char_count,
+                        $line_chars{$char_count}->{char}
+                    );
+                    attroff( $win, COLOR_PAIR($GOOD_CHAR) );
+                    $line_chars{$char_count}->{state} = $GOOD_CHAR;
+                    ++$char_count;
+                }
+                else {    # Bad character pressed
+                    attron( $win, COLOR_PAIR($BAD_CHAR) );
+                    addstring(
+                        $win, $row,
+                        $start + $char_count,
+                        $line_chars{$char_count}->{char}
+                    );
+                    attroff( $win, COLOR_PAIR($BAD_CHAR) );
+                    $line_chars{$char_count}->{state} = $BAD_CHAR;
+                    ++$char_count;
                 }
             }
 
