@@ -429,17 +429,14 @@ sub play {
 
             move( $win, $row, $start );
 
-            until (  $timer_end
-                  || $char_count >= $line_length
-                  || $finished_line )
-            {
+            until ( $timer_end || $finished_line ) {
 
                 ( $input_char, $key ) = getchar($win);
 
                 # Function keys handler
                 if ( defined $key ) {
 
-                    # Eraser implementation
+                    # Delete characters
                     if ( $key == KEY_BACKSPACE ) {
                         if ($char_count) {
                             --$char_count;
@@ -456,6 +453,15 @@ sub play {
                         }
                         next;
                     }
+                }
+
+                # I'm in the end of the line and wait for the space bar
+                # or the backspace to be pressed
+                if ( $char_count >= $line_length ) {
+                    if ( defined $input_char && $input_char eq ' ' ) {
+                        last;
+                    }
+                    next;
                 }
 
                 if ( defined $input_char && $input_char eq ' ' ) {
@@ -515,6 +521,7 @@ sub play {
                     $line_chars{$char_count}->{state} = $BAD_CHAR;
                     ++$char_count;
                 }
+
             }
 
             if ( $line_count >= ( $MAX_LINES - 1 ) ) {
