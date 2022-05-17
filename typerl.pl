@@ -425,6 +425,8 @@ sub play {
             my $words_count   = 0;
             my $char_count    = 0;
             my $finished_line = 0;
+            my $line_again    = 0;
+            my ( $input_char, $key );
 
             move( $win, $row, $start );
 
@@ -432,7 +434,12 @@ sub play {
                   || $words_count > ( $word_quantity - 1 )
                   || $finished_line )
             {
-                my ( $input_char, $key ) = getchar($win);
+                if ( !$line_again ) {
+                    ( $input_char, $key ) = getchar($win);
+                }
+                else {
+                    $line_again = 0;
+                }
 
                 # Function keys handler
                 if ( defined $key ) {
@@ -520,31 +527,58 @@ sub play {
                 else {    # I am in the end of the line
 
              # Print the wrong characters pressed until the space bar is pressed
-                    until ( defined $input_char && $input_char eq ' ' ) {
-                        attron( $win, COLOR_PAIR(2) );
-                        addstring( $win, $row, $start + $char_count,
-                            $input_char );
-                        attroff( $win, COLOR_PAIR(2) );
-                        ++$char_count;
+             # or until I delete characters to the end of the line
 
-                        # I'm not close to the border of the window
-                        if ( $start + $char_count < ( $max_x - 4 ) ) {
+                    until (  $char_count < $line_length
+                          || defined $input_char && $input_char eq ' '
+                          || $line_again )
+                    {
+                        # Function keys handler
+                        if ( defined $key ) {
 
-                            # Get next character
-                            $input_char = getchar($win);
-                        }
-                        else { # I'm close to the border stop writing characters
-                            until ( defined $input_char && $input_char eq ' ' )
-                            {
+                            # Eraser implementation
+                            if ( $key == KEY_BACKSPACE ) {
+                                if ( $char_count > $line_length ) {
+                                    --$char_count;
+                                    attroff( $win,
+                                        COLOR_PAIR($GOOD_CHAR) |
+                                          COLOR_PAIR($BAD_CHAR) );
 
-                                # Get next character, if this is not a space
-                                # do nothing
-                                $input_char = getchar($win);
+                                    addstring( $win, $row, $start + $char_count,
+                                        ' ' );
+                                    move( $win, $row, $start + $char_count );
+                                }
+                                else {
+                                    $line_again = 1;
+                                }
+                            }
+                            if ( !$line_again ) {
+                                ( $input_char, $key ) = getchar($win);
                             }
                         }
+                        else {
+
+                            # I'm not close to the border of the window
+                            if ( $start + $char_count < ( $max_x - 4 ) ) {
+                                attron( $win, COLOR_PAIR(2) );
+                                addstring( $win, $row, $start + $char_count,
+                                    $input_char );
+                                attroff( $win, COLOR_PAIR(2) );
+                                ++$char_count;
+
+                            }
+
+                            # Get next character
+                            ( $input_char, $key ) = getchar($win);
+                        }
                     }
-                    $finished_line = 1;
-                    ++$words_count;
+
+                    # Finished because all the characters are writen
+                    # And I'm not in the line again
+                    if ( $char_count >= $line_length && !$line_again ) {
+                        $finished_line = 1;
+                        ++$words_count;
+                    }
                 }
             }
 
