@@ -46,11 +46,11 @@ Readonly my $MAX_LINES => int( $MAX_WORDS / $word_quantity );
 
 # END CONFIGURATION
 #-----------------------
-main();
+typerl();
 
 exit 0;
 
-sub main {
+sub typerl {
 
     # Initialize curses
     initscr;
@@ -74,9 +74,6 @@ sub main {
     my $max_x    = getmaxx($win);
     my $middle_x = int( $max_x / 2 );
 
-    # Create borders for the window
-    box( $win, 0, 0 );
-
     # MENU INITILIZATION
     # ---------------------
     # Define the program title and the menu content
@@ -85,6 +82,7 @@ sub main {
     my @options_subs = ( \&play, \&settings, \&statistics );
     my $options_max  = $#options;
 
+    # Terminal size errors
     for my $option ( $title, @options ) {
 
         # Error due to the terminal being too small
@@ -108,6 +106,14 @@ sub main {
           "- Make the terminal bigger\n";
         exit 1;
     }
+
+    # ---------------------
+
+    # Create borders for the window
+    box( $win, 0, 0 );
+
+    # Enable function keys
+    keypad( $win, 1 );
 
     # ---------------------
 
@@ -137,14 +143,30 @@ sub main {
 
     # Prepare for the infinite loop
     my $move   = "";
+    my $key    = 0;
     my $option = 0;
     $y = $menu_line_breaks * 2;    # The y position of the first element
 
     while (1) {
-        $move = getchar($win);
+        ( $move, $key ) = getchar($win);
         addstring( $win, $y,
             $middle_x - int( ( length $options[$option] ) / 2 ),
             $options[$option] );
+
+        if ( defined $key ) {
+            if ( $key == KEY_DOWN ) {
+                $move = 'j';
+            }
+            elsif ( $key == KEY_UP ) {
+                $move = 'k';
+            }
+            elsif ( $key == KEY_RIGHT ) {
+                $move = 'l';
+            }
+            else {
+                $move = '';
+            }
+        }
         if ( $move eq 'j' ) {
             if ( $option == $options_max ) {
                 $y      = $menu_line_breaks * 2;
@@ -193,25 +215,8 @@ sub play {
     # Create a new window
     my $win = Curses->new;
 
-    # Get the max x value and calculate the middle of the screen width
-    my $max_x    = getmaxx($win);
-    my $middle_x = int( $max_x / 2 );
-
-    # Create borders for the window
-    box( $win, 0, 0 );
-
-    if ($show_cursor) {
-        attron( $win, curs_set(1) );
-    }
-
-    # Prepare the dictionary
-    require spanish;
-    my $dict  = spanish->new;
-    my @words = @{ $dict->{words} };
-
     # The cursor y axis value, for printing the words in the correct
     # place
-
     my $first_row = 0;
     if ($centered_words) {
 
@@ -235,9 +240,29 @@ sub play {
         exit 1;
     }
 
+    # Get the max x value and calculate the middle of the screen width
+    my $max_x    = getmaxx($win);
+    my $middle_x = int( $max_x / 2 );
+
+    # Create borders for the window
+    box( $win, 0, 0 );
+
+    if ($show_cursor) {
+        attron( $win, curs_set(1) );
+    }
+
+    # Enable function keys
+    keypad( $win, 1 );
+
     # ---------------------
     # PREPARE WORDS
     # ---------------------
+    #
+    # Prepare the dictionary
+    require spanish;
+    my $dict  = spanish->new;
+    my @words = @{ $dict->{words} };
+
     # Preare for the word generator loop
     # This list will contain all the words for this game and reapeated ones
     my @words_lines = ();
@@ -336,6 +361,14 @@ sub play {
     # To wait if all words are completed
     my $wait = 0;
 
+    # Counters for the game statistics
+
+    my $statistics = {
+        total_chars_typed => 0,
+        good_chars        => 0,
+        bad_chars         => 0,
+    };
+
     # ------------------------------------------
     # TIMER
 
@@ -381,6 +414,8 @@ sub play {
                 nodelay( $win, 1 );
                 while ( !$timer_end ) {
                     getchar($win);
+
+                    # Don't kill the cpu
                     sleep(0.3);
                 }
                 nodelay( $win, 0 );
@@ -397,7 +432,29 @@ sub play {
                   || $words_count > ( $word_quantity - 1 )
                   || $finished_line )
             {
-                my $input_char = getchar($win);
+                my ( $input_char, $key ) = getchar($win);
+
+                # Function keys handler
+                if ( defined $key ) {
+
+                    # Eraser implementation
+                    if ( $key == KEY_BACKSPACE ) {
+                        if ($char_count) {
+                            --$char_count;
+                            attroff( $win,
+                                COLOR_PAIR($GOOD_CHAR) |
+                                  COLOR_PAIR($BAD_CHAR) );
+
+                            addstring(
+                                $win, $row,
+                                $start + $char_count,
+                                $line_chars{$char_count}->{char}
+                            );
+                            move( $win, $row, $start + $char_count );
+                        }
+                        next;
+                    }
+                }
 
                 if ( $char_count < $line_length )
                 {    # I am not in the end of the line
