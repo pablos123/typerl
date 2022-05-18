@@ -349,25 +349,28 @@ sub play {
     # Prepare for the game loop
     my $line_count = 0;
 
-    my $char_index = 0;
-    my %line_chars =
-      map { $char_index++ => { char => $_, state => $NEUTRAL_CHAR } } split //,
-      $words_lines[$line_count]->{words};
-    my %chars_count = ( bad => 0, good => 0 );
+    # List for having all the char hashes of the lines
+    my @all_line_chars = ();
 
+    # Generate all the metadata for the line in the current game
+    for my $line ( 0 .. $MAX_LINES ) {
+        my $char_index = 0;
+        my %line =
+          map { $char_index++ => { char => $_, state => $NEUTRAL_CHAR } }
+          split //,
+          $words_lines[$line]->{words};
+        push @all_line_chars, \%line;
+    }
+
+    # Boundary for the current line
     my $start       = $words_lines[$line_count]->{start};
     my $line_length = $words_lines[$line_count]->{length};
 
+    # Set the current line
+    my %line_chars = %{ $all_line_chars[0] };
+
     # To wait if all words are completed
     my $wait = 0;
-
-    # Counters for the game statistics
-
-    my $statistics = {
-        total_chars_typed => 0,
-        good_chars        => 0,
-        bad_chars         => 0,
-    };
 
     # ------------------------------------------
     # TIMER
@@ -438,19 +441,64 @@ sub play {
 
                     # Delete characters
                     if ( $key == KEY_BACKSPACE ) {
-                        if ($char_count) {
-                            --$char_count;
-                            attroff( $win,
-                                COLOR_PAIR($GOOD_CHAR) |
-                                  COLOR_PAIR($BAD_CHAR) );
 
+                        # Disable the colors
+                        attroff( $win,
+                            COLOR_PAIR($GOOD_CHAR) | COLOR_PAIR($BAD_CHAR) );
+
+                        # I'm not in the beginning of the line
+                        if ( $char_count > 0 ) {
+                            --$char_count;
+
+                            # Support delete multiple spaces
+                            while ( $line_chars{$char_count}->{char} eq ' ' ) {
+                                addstring( $win, $row, $start + $char_count,
+                                    ' ' );
+                                --$char_count;
+                            }
                             addstring(
                                 $win, $row,
                                 $start + $char_count,
                                 $line_chars{$char_count}->{char}
                             );
-                            move( $win, $row, $start + $char_count );
                         }
+
+        # The char count is 0 I want to go to the previous line, only if I'm not
+        # in the first visible line
+                        else {
+                            if ( $row != $first_row ) {
+
+                                # To place the cursor correctly
+                                $row -= $line_breaks;
+
+                                # We are now in the previous line
+                                --$line_count;
+
+                                # New start an length of the previous line
+                                $start = $words_lines[$line_count]->{start};
+                                $line_length =
+                                  $words_lines[$line_count]->{length};
+
+                                # Set the char_count to the last char in the
+                                # previous line, then set the clean char with
+                                # this value
+                                $char_count = $line_length - 1;
+
+                                # Put the chars of the previous line as the
+                                # current set of characters
+                                %line_chars = %{ $all_line_chars[$line_count] };
+
+                                # Add the clean character
+                                addstring(
+                                    $win, $row,
+                                    $start + $char_count,
+                                    $line_chars{$char_count}->{char}
+                                );
+                            }
+                        }
+
+                        # Move the cursor to the correct updated position
+                        move( $win, $row, $start + $char_count );
                         next;
                     }
                 }
@@ -464,7 +512,11 @@ sub play {
                     next;
                 }
 
+                # The character pressed is the spacebar
                 if ( defined $input_char && $input_char eq ' ' ) {
+
+           # To draw bad characters in spaces if the spacebar is wrongly pressed
+                    my $inside_word = 0;
 
                     # Advance all the current word characters
                     attron( $win, COLOR_PAIR($BAD_CHAR) );
@@ -478,23 +530,30 @@ sub play {
                         );
                         $line_chars{$char_count}->{state} = $BAD_CHAR;
                         ++$char_count;
+
+                        # I want to draw bad chars
+                        $inside_word = 1;
                     }
-                    attroff( $win, COLOR_PAIR($BAD_CHAR) );
 
                     # Advance all the spaces
                     while ($char_count < $line_length
                         && $line_chars{$char_count}->{char} eq ' ' )
                     {
+                      # Draw an underscore and mark the space as a bad character
+                        if ($inside_word) {
+                            addstring( $win, $row, $start + $char_count, '_' );
+                            $line_chars{$char_count}->{state} = $BAD_CHAR;
+                        }
                         ++$char_count;
                     }
+                    attroff( $win, COLOR_PAIR($BAD_CHAR) );
 
-                    # If I am at the end of the line
+                    # I am at the end of the line
                     if ( $char_count >= $line_length ) {
                         $finished_line = 1;
                     }
 
                     move( $win, $row, $start + $char_count );
-
                 }
                 elsif ( defined $input_char
                     && $input_char eq $line_chars{$char_count}->{char} )
@@ -512,11 +571,18 @@ sub play {
                 }
                 else {    # Bad character pressed
                     attron( $win, COLOR_PAIR($BAD_CHAR) );
-                    addstring(
-                        $win, $row,
-                        $start + $char_count,
-                        $line_chars{$char_count}->{char}
-                    );
+
+                    # Draw a bad character instead of the space
+                    if ( $line_chars{$char_count}->{char} eq ' ' ) {
+                        addstring( $win, $row, $start + $char_count, '_' );
+                    }
+                    else {
+                        addstring(
+                            $win, $row,
+                            $start + $char_count,
+                            $line_chars{$char_count}->{char}
+                        );
+                    }
                     attroff( $win, COLOR_PAIR($BAD_CHAR) );
                     $line_chars{$char_count}->{state} = $BAD_CHAR;
                     ++$char_count;
@@ -524,52 +590,52 @@ sub play {
 
             }
 
+            # Wait for the timer to finish, all words finished
             if ( $line_count >= ( $MAX_LINES - 1 ) ) {
                 $wait = 1;
+            }
+
+            # If I'm in the first row move to the second
+            if ( $row == $first_row ) {
+                $row = $first_row + $line_breaks;
             }
 
             # If not ending because the timer and not have to wait
             if ( !$timer_end && !$wait ) {
 
-                # Clean the bad trailing characters for the first line
-                if ( $line_count == 0 ) {
-                    for (
-                        my $i = $start + $line_length ;
-                        $i < $max_x - 4 ;
-                        ++$i
-                      )
-                    {
-                        addstring( $win, $row, $i, ' ' );
-                    }
-                }
-
-                # From now on im always in the middle row
-                $row = $first_row + $line_breaks;
-
                 ++$line_count;
-                my %previous_line_chars = %line_chars;
 
-                # Generate the next line
-                $char_index = 0;
-                %line_chars =
-                  map {
-                    $char_index++ => { char => $_, state => $NEUTRAL_CHAR }
-                  }
-                  split //,
-                  $words_lines[$line_count]->{words};
+                # Set the correct line of chars for next line
+                %line_chars = %{ $all_line_chars[$line_count] };
+
+                # Boundary control
                 $start       = $words_lines[$line_count]->{start};
                 $line_length = $words_lines[$line_count]->{length};
 
                 # I am in the last line in sight, I need to show the next,
                 # I don't want to move the y axis
                 if ( $line_count > 1 ) {
+                    my %previous_line_chars =
+                      %{ $all_line_chars[ $line_count - 1 ] };
 
                     # Clean the existing lines
-                    addstring( $win, $row - $line_breaks,
-                        4, ' ' x ( $max_x - 5 ) );
-                    addstring( $win, $row, 4, ' ' x ( $max_x - 5 ) );
-                    addstring( $win, $row + $line_breaks,
-                        4, ' ' x ( $max_x - 5 ) );
+                    addstring(
+                        $win,
+                        $row - $line_breaks,
+                        $words_lines[ $line_count - 2 ]->{start},
+                        ' ' x $words_lines[ $line_count - 2 ]->{length}
+                    );
+                    addstring(
+                        $win, $row,
+                        $words_lines[ $line_count - 1 ]->{start},
+                        ' ' x $words_lines[ $line_count - 1 ]->{length}
+                    );
+                    addstring(
+                        $win,
+                        $row + $line_breaks,
+                        $words_lines[$line_count]->{start},
+                        ' ' x $words_lines[$line_count]->{length}
+                    );
 
                     # Persist the state of the previous line
                     for (
@@ -578,18 +644,25 @@ sub play {
                         ++$i
                       )
                     {
+                        my $char_to_draw = $previous_line_chars{$i}->{char};
                         if ( $previous_line_chars{$i}->{state} == $GOOD_CHAR ) {
                             attron( $win, COLOR_PAIR($GOOD_CHAR) );
                         }
                         elsif ( $previous_line_chars{$i}->{state} == $BAD_CHAR )
                         {
                             attron( $win, COLOR_PAIR($BAD_CHAR) );
+
+                            # The character is a bad space, persist this
+                            if ( $char_to_draw eq ' ' ) {
+                                $char_to_draw = '_';
+                            }
                         }
+                        if ( $previous_line_chars{$i}->{char} ) { }
                         addstring(
                             $win,
                             $row - $line_breaks,
                             $words_lines[ $line_count - 1 ]->{start} + $i,
-                            $previous_line_chars{$i}->{char}
+                            $char_to_draw
                         );
 
                         attroff( $win,
