@@ -269,6 +269,11 @@ sub play {
     my $words_line  = '';
     my $line_len    = 0;
 
+    # List for having all the char hashes of the lines
+    # inidicating the character and the state of the character
+    # for the current game
+    my @all_line_chars = ();
+
     # For fixed line starts
     my $first_start = 0;
 
@@ -319,9 +324,17 @@ sub play {
             }
 
             # Push the new line of words to the lines array
-            # save the $length and the start column
+            # save the length and the start column
             push @words_lines,
               { words => $words_line, start => $start, length => $length };
+
+            # Generate all the metadata for the current generated line
+            my $char_index = 0;
+            my %line =
+              map { $char_index++ => { char => $_, state => $NEUTRAL_CHAR } }
+              split //, $words_line;
+
+            push @all_line_chars, \%line;
 
             # Reset counters
             $words_line = '';
@@ -337,6 +350,8 @@ sub play {
     my $row = $first_row;
 
     # Draw three lines to begin the game.
+    # Don't draw the lines in the gnerator loop
+    # so tne terminal size errors can be handle correctly
     for my $start_line ( 0 .. 2 ) {
         addstring(
             $win,
@@ -346,21 +361,8 @@ sub play {
         );
     }
 
-    # Prepare for the game loop
+    # Line counter for the current game
     my $line_count = 0;
-
-    # List for having all the char hashes of the lines
-    my @all_line_chars = ();
-
-    # Generate all the metadata for the line in the current game
-    for my $line ( 0 .. $MAX_LINES ) {
-        my $char_index = 0;
-        my %line =
-          map { $char_index++ => { char => $_, state => $NEUTRAL_CHAR } }
-          split //,
-          $words_lines[$line]->{words};
-        push @all_line_chars, \%line;
-    }
 
     # Boundary for the current line
     my $start       = $words_lines[$line_count]->{start};
@@ -371,6 +373,12 @@ sub play {
 
     # To wait if all words are completed
     my $wait = 0;
+
+    # Variables for each game iteration
+    my $char_count    = 0;
+    my $finished_line = 0;
+    my $input_char    = '';
+    my $key           = undef;
 
     # ------------------------------------------
     # TIMER
@@ -425,10 +433,9 @@ sub play {
                 last;
             }
 
-            my $char_count    = 0;
-            my $finished_line = 0;
-            my $line_again    = 0;
-            my ( $input_char, $key );
+            # Reset counters
+            $char_count    = 0;
+            $finished_line = 0;
 
             move( $win, $row, $start );
 
