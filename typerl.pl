@@ -259,8 +259,8 @@ sub play {
     # ---------------------
     #
     # Prepare the dictionary
-    require spanish;
-    my $dict  = spanish->new;
+    require english;
+    my $dict  = english->new;
     my @words = @{ $dict->{words} };
 
     # Preare for the word generator loop
@@ -282,6 +282,10 @@ sub play {
         my $new_word = $words[ int( rand( scalar @words ) ) ];
         if ( $i % $word_quantity ) {
             $new_word .= ( ' ' x $spaces );
+        }
+        else {
+            # Add a space at the end of the line
+            $new_word .= ' ';
         }
 
         $line_len += int( ( length $new_word ) / 2 );
@@ -375,10 +379,17 @@ sub play {
     my $wait = 0;
 
     # Variables for each game iteration
+    # Each time I'm in a different line
     my $char_count    = 0;
     my $finished_line = 0;
-    my $input_char    = '';
-    my $key           = undef;
+
+    # Each time I press a character
+    my $input_char = '';
+    my $key        = undef;
+
+    # Various
+    my $inside_word         = 0;
+    my %previous_line_chars = ();
 
     # ------------------------------------------
     # TIMER
@@ -458,12 +469,20 @@ sub play {
                             --$char_count;
 
                             # Support delete multiple spaces
-                            while ( $line_chars->{$char_count}->{char} eq ' ' )
-                            {
-                                addstring( $win, $row, $start + $char_count,
-                                    ' ' );
-                                --$char_count;
+                            if ( $line_chars->{$char_count}->{char} eq ' ' ) {
+                                while (
+                                    $line_chars->{ $char_count - 1 }->{char} eq
+                                    ' ' )
+                                {
+                                    addstring(
+                                        $win, $row,
+                                        $start + $char_count,
+                                        $line_chars->{$char_count}->{char}
+                                    );
+                                    --$char_count;
+                                }
                             }
+
                             addstring(
                                 $win, $row,
                                 $start + $char_count,
@@ -479,7 +498,7 @@ sub play {
                                 # To place the cursor correctly
                                 $row -= $line_breaks;
 
-                                # We are now in the previous line
+                                # I'm now in the previous line
                                 --$line_count;
 
                                 # New start an length of the previous line
@@ -517,6 +536,10 @@ sub play {
                     if ( defined $input_char && $input_char eq ' ' ) {
                         last;
                     }
+                    elsif ( defined $input_char && $input_char ne ' ' ) {
+
+                        # Add bad character count here
+                    }
                     next;
                 }
 
@@ -524,7 +547,7 @@ sub play {
                 if ( defined $input_char && $input_char eq ' ' ) {
 
            # To draw bad characters in spaces if the spacebar is wrongly pressed
-                    my $inside_word = 0;
+                    $inside_word = 0;
 
                     # Advance all the current word characters
                     attron( $win, COLOR_PAIR($BAD_CHAR) );
@@ -606,7 +629,7 @@ sub play {
                 $wait = 1;
             }
 
-            # If I'm in the first row move to the second
+            # I'm in the first row move to the second
             if ( $row == $first_row ) {
                 $row = $first_row + $line_breaks;
             }
@@ -623,10 +646,10 @@ sub play {
                 $start       = $words_lines[$line_count]->{start};
                 $line_length = $words_lines[$line_count]->{length};
 
-                # I am in the last line in sight, I need to show the next,
+                # I'm in the last line in sight, I need to show the next,
                 # I don't want to move the y axis
                 if ( $line_count > 1 ) {
-                    my %previous_line_chars =
+                    %previous_line_chars =
                       %{ $all_line_chars[ $line_count - 1 ] };
 
                     # Clean the existing lines
