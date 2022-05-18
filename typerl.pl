@@ -367,7 +367,7 @@ sub play {
     my $line_length = $words_lines[$line_count]->{length};
 
     # Set the current line
-    my %line_chars = %{ $all_line_chars[0] };
+    my $line_chars = $all_line_chars[0];
 
     # To wait if all words are completed
     my $wait = 0;
@@ -451,7 +451,8 @@ sub play {
                             --$char_count;
 
                             # Support delete multiple spaces
-                            while ( $line_chars{$char_count}->{char} eq ' ' ) {
+                            while ( $line_chars->{$char_count}->{char} eq ' ' )
+                            {
                                 addstring( $win, $row, $start + $char_count,
                                     ' ' );
                                 --$char_count;
@@ -459,7 +460,7 @@ sub play {
                             addstring(
                                 $win, $row,
                                 $start + $char_count,
-                                $line_chars{$char_count}->{char}
+                                $line_chars->{$char_count}->{char}
                             );
                         }
 
@@ -486,13 +487,13 @@ sub play {
 
                                 # Put the chars of the previous line as the
                                 # current set of characters
-                                %line_chars = %{ $all_line_chars[$line_count] };
+                                $line_chars = $all_line_chars[$line_count];
 
                                 # Add the clean character
                                 addstring(
                                     $win, $row,
                                     $start + $char_count,
-                                    $line_chars{$char_count}->{char}
+                                    $line_chars->{$char_count}->{char}
                                 );
                             }
                         }
@@ -521,14 +522,14 @@ sub play {
                     # Advance all the current word characters
                     attron( $win, COLOR_PAIR($BAD_CHAR) );
                     until (  $char_count >= $line_length
-                          || $line_chars{$char_count}->{char} eq ' ' )
+                          || $line_chars->{$char_count}->{char} eq ' ' )
                     {
                         addstring(
                             $win, $row,
                             $start + $char_count,
-                            $line_chars{$char_count}->{char}
+                            $line_chars->{$char_count}->{char}
                         );
-                        $line_chars{$char_count}->{state} = $BAD_CHAR;
+                        $line_chars->{$char_count}->{state} = $BAD_CHAR;
                         ++$char_count;
 
                         # I want to draw bad chars
@@ -537,12 +538,15 @@ sub play {
 
                     # Advance all the spaces
                     while ($char_count < $line_length
-                        && $line_chars{$char_count}->{char} eq ' ' )
+                        && $line_chars->{$char_count}->{char} eq ' ' )
                     {
                       # Draw an underscore and mark the space as a bad character
                         if ($inside_word) {
                             addstring( $win, $row, $start + $char_count, '_' );
-                            $line_chars{$char_count}->{state} = $BAD_CHAR;
+                            $line_chars->{$char_count}->{state} = $BAD_CHAR;
+                        }
+                        else {
+                            $line_chars->{$char_count}->{state} = $GOOD_CHAR;
                         }
                         ++$char_count;
                     }
@@ -556,35 +560,35 @@ sub play {
                     move( $win, $row, $start + $char_count );
                 }
                 elsif ( defined $input_char
-                    && $input_char eq $line_chars{$char_count}->{char} )
+                    && $input_char eq $line_chars->{$char_count}->{char} )
 
                 {    # Good character pressed
                     attron( $win, COLOR_PAIR($GOOD_CHAR) );
                     addstring(
                         $win, $row,
                         $start + $char_count,
-                        $line_chars{$char_count}->{char}
+                        $line_chars->{$char_count}->{char}
                     );
                     attroff( $win, COLOR_PAIR($GOOD_CHAR) );
-                    $line_chars{$char_count}->{state} = $GOOD_CHAR;
+                    $line_chars->{$char_count}->{state} = $GOOD_CHAR;
                     ++$char_count;
                 }
                 else {    # Bad character pressed
                     attron( $win, COLOR_PAIR($BAD_CHAR) );
 
                     # Draw a bad character instead of the space
-                    if ( $line_chars{$char_count}->{char} eq ' ' ) {
+                    if ( $line_chars->{$char_count}->{char} eq ' ' ) {
                         addstring( $win, $row, $start + $char_count, '_' );
                     }
                     else {
                         addstring(
                             $win, $row,
                             $start + $char_count,
-                            $line_chars{$char_count}->{char}
+                            $line_chars->{$char_count}->{char}
                         );
                     }
                     attroff( $win, COLOR_PAIR($BAD_CHAR) );
-                    $line_chars{$char_count}->{state} = $BAD_CHAR;
+                    $line_chars->{$char_count}->{state} = $BAD_CHAR;
                     ++$char_count;
                 }
 
@@ -606,7 +610,7 @@ sub play {
                 ++$line_count;
 
                 # Set the correct line of chars for next line
-                %line_chars = %{ $all_line_chars[$line_count] };
+                $line_chars = $all_line_chars[$line_count];
 
                 # Boundary control
                 $start       = $words_lines[$line_count]->{start};
